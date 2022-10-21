@@ -63,6 +63,7 @@ dependencies {
     implementation 'org.springframework.data:spring-data-commons:3.0.0-RC1'
     implementation 'org.springframework.data:spring-data-elasticsearch:5.0.0-RC1'
     implementation 'org.opensearch.client:opensearch-rest-high-level-client:2.3.0'
+    implementation 'jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1'
     implementation 'com.fasterxml.jackson.core:jackson-core:2.13.4'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
     implementation 'org.slf4j:slf4j-api:2.0.2'
