@@ -55,7 +55,8 @@ test {
     useJUnitPlatform()
     exclude '**/*IntegrationTests**'
     filter {
-        excludeTestsMatching "org.opensearch.security.sanity.tests.*"
+        excludeTestsMatching "CdiRepositoryTests"
+        excludeTestsMatching "JUnit5SampleOpenSearchRestTemplateTests"
     }
     maxParallelForks = 8
     jvmArgs += "-Xmx3072m"
@@ -81,6 +82,17 @@ test {
             "sun.util.resources.provider.*"
         ]
     }
+}
+
+//add new task that runs integration tests
+task integrationTest(type: Test) {
+    include "**/*IntegrationTests**"
+    description = 'Run integration tests.'
+    group = 'verification'
+    systemProperty "tests.security.manager", false
+
+    //run the integrationTest task after the test task
+    shouldRunAfter test
 }
 
 jacoco {
