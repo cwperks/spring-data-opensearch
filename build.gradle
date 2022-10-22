@@ -28,9 +28,59 @@ plugins {
 
 allprojects {
     group = "org.opensearch.client"
+    version = '0.1.0-SNAPSHOT'
+    description = 'Spring Data Opensearch'
 
     // Release manager provides a $VERSION. If not present, it's a local or CI snapshot build.
-    version = System.getenv("VERSION") ?: System.getProperty("version") + "-SNAPSHOT"
+    // version = System.getenv("VERSION") ?: System.getProperty("version") + "-SNAPSHOT"
+}
+
+// spotless {
+//   java {
+//     // note: you can use an empty string for all the imports you didn't specify explicitly, and '\\#` prefix for static imports
+//     importOrder('java', 'javax', '', 'com.amazon', 'org.opensearch', '\\#')
+//     targetExclude('src/integrationTest/**')
+//   }
+//   format("integrationTest", JavaExtension) {
+//       target('src/integrationTest/java/**/*.java')
+//       importOrder('java', 'javax', '', 'com.amazon', 'org.opensearch', '\\#')
+//       indentWithTabs(4)
+//   }
+// }
+
+java.sourceCompatibility = JavaVersion.VERSION_17
+java.targetCompatibility = JavaVersion.VERSION_17
+
+test {
+    useJUnitPlatform()
+    exclude '**/*IntegrationTests**'
+    filter {
+        excludeTestsMatching "org.opensearch.security.sanity.tests.*"
+    }
+    maxParallelForks = 8
+    jvmArgs += "-Xmx3072m"
+    if (JavaVersion.current() > JavaVersion.VERSION_1_8) {
+        jvmArgs += "--add-opens=java.base/java.io=ALL-UNNAMED"
+    }
+    // retry {
+    //     failOnPassedAfterRetry = false
+    //     maxRetries = 5
+    // }
+    jacoco {
+        excludes = [
+            "com.sun.jndi.dns.*",
+            "com.sun.security.sasl.gsskerb.*",
+            "java.sql.*",
+            "javax.script.*",
+            "org.jcp.xml.dsig.internal.dom.*",
+            "sun.nio.cs.ext.*",
+            "sun.security.ec.*",
+            "sun.security.jgss.*",
+            "sun.security.pkcs11.*",
+            "sun.security.smartcardio.*",
+            "sun.util.resources.provider.*"
+        ]
+    }
 }
 
 jacoco {
@@ -56,57 +106,69 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.slf4j:slf4j-api:2.0.2'
     implementation 'org.springframework:spring-context:6.0.0-RC1'
     implementation 'org.springframework:spring-tx:6.0.0-RC1'
     implementation 'org.springframework:spring-web:6.0.0-RC1'
+    implementation 'org.springframework:spring-beans:6.0.0-RC1'
     implementation 'org.springframework.data:spring-data-commons:3.0.0-RC1'
-    implementation 'org.springframework.data:spring-data-elasticsearch:5.0.0-RC1'
-    implementation 'org.opensearch.client:opensearch-rest-high-level-client:2.3.0'
-    implementation 'jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1'
+    implementation('org.springframework.data:spring-data-elasticsearch:5.0.0-RC1') {
+        exclude(group: 'co.elastic.clients')
+        exclude(group: 'org.elasticsearch.client')
+    }
+    implementation('org.opensearch.client:opensearch-rest-high-level-client:2.3.0') {
+        exclude(group: 'commons-logging', module: 'commons-logging')
+    }
     implementation 'com.fasterxml.jackson.core:jackson-core:2.13.4'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
     implementation 'org.slf4j:slf4j-api:2.0.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
-    testImplementation 'org.junit.vintage:junit-vintage-engine:5.9.1'
-    testImplementation 'org.mockito:mockito-core:4.8.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:4.8.0'
-    testImplementation 'org.assertj:assertj-core:3.23.1'
-    testImplementation 'org.springframework:spring-test:6.0.0-RC1'
-    testImplementation 'ch.qos.logback:logback-classic:1.4.1'
-    testImplementation 'org.projectlombok:lombok:1.18.20'
+
+    implementation 'jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1'
+    compileOnly 'jakarta.enterprise:jakarta.enterprise.cdi-api:3.0.0'
+
+    // test dependencies
+
+    // CDI
+    // Dependency order required to build against CDI 1.0 and test with CDI 2.0
     testImplementation 'org.apache.geronimo.specs:geronimo-jcdi_2.0_spec:1.3'
-    testImplementation 'javax.interceptor:javax.interceptor-api:1.2.1'
     testImplementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
     testImplementation 'org.apache.openwebbeans:openwebbeans-se:2.0.27'
     testImplementation 'org.apache.openwebbeans:openwebbeans-spi:2.0.27'
     testImplementation 'org.apache.openwebbeans:openwebbeans-impl:2.0.27'
-    testImplementation 'org.springframework:spring-test:6.0.0-RC1'
+    testImplementation('org.springframework:spring-test:6.0.0-RC1') {
+        exclude(group: 'ch.qos.logback', module: 'logback-classic')
+    }
     testImplementation 'org.slf4j:log4j-over-slf4j:2.0.2'
     testImplementation 'org.apache.logging.log4j:log4j-core:2.19.0'
     testImplementation 'org.apache.logging.log4j:log4j-to-slf4j:2.19.0'
+
+    // we don't use lombok in Spring Data Elasticsearch anymore. But the dependency is set in the parent project, and so the
+    // lombok compiler stuff is executed regardless of the fact that we don't need it.
+    // On AdoptOpenJdk 16.0.0 this leads to an error, so the project does not build.
+    // Therefore we replace lombok with a jar - that just contains an empty file - that lives in a local maven repository in
+    // src/test/resources/local-maven-repo/
+    // It was installed with
+    //  mvn deploy:deploy-file -DgroupId=org.projectlombok -DartifactId=lombok -Dversion=999999 -Durl=file:./src/test/resources/local-maven-repo/ -DrepositoryId=local-maven-repo -DupdateReleaseInfo=true -Dfile=path/to/empty.jar
     testImplementation 'org.projectlombok:lombok:1.18.24'
+
     testImplementation 'org.skyscreamer:jsonassert:1.5.1'
-    testImplementation 'com.github.tomakehurst:wiremock-jre8:2.34.0'
+    testImplementation('com.github.tomakehurst:wiremock-jre8:2.34.0') {
+        exclude(group: 'commons-logging', module: 'commons-logging')
+        exclude(group: 'org.ow2.asm', module: 'asm')
+    }
     testImplementation 'io.specto:hoverfly-java-junit5:0.14.3'
+    // Upgrade xbean to 4.5 to prevent incompatibilities due to ASM versions
     testImplementation 'org.apache.xbean:xbean-asm5-shaded:4.5'
     testImplementation 'javax.servlet:javax.servlet-api:4.0.1'
     testImplementation 'org.mockito:mockito-junit-jupiter:4.8.0'
     testImplementation 'org.testcontainers:elasticsearch:1.17.5'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
     testImplementation 'org.junit.vintage:junit-vintage-engine:5.9.1'
     testImplementation 'org.mockito:mockito-core:4.8.0'
     testImplementation 'org.assertj:assertj-core:3.23.1'
     testImplementation 'ch.qos.logback:logback-classic:1.4.1'
-    compileOnly 'jakarta.enterprise:jakarta.enterprise.cdi-api:3.0.0'
+    testImplementation 'javax.interceptor:javax.interceptor-api:1.2.1'
 }
-
-group = 'org.opensearch.client'
-version = '0.1.0-SNAPSHOT'
-description = 'Spring Data Opensearch'
-
-java.sourceCompatibility = JavaVersion.VERSION_17
-java.targetCompatibility = JavaVersion.VERSION_17
 
 java {
     withSourcesJar()
